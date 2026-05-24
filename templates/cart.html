@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}购物车 — 美食在线{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <h4 class="mb-3"><i class="bi bi-cart"></i> 购物车</h4>
+        <div id="cartItems">
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0" id="cartSummary" style="display:none">
+            <div class="card-body">
+                <h5 class="card-title">订单摘要</h5><hr>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>商品总额</span><span id="cartTotal">0.00</span>
+                </div><hr>
+                <div class="d-flex justify-content-between fw-bold">
+                    <span>应付金额</span><span class="text-danger fs-5" id="cartFinalTotal">0.00</span>
+                </div>
+                <button class="btn btn-primary w-100 mt-3 py-2" onclick="checkout()">
+                    <i class="bi bi-check-circle"></i> 去结算
+                </button>
+                <button class="btn btn-outline-secondary w-100 mt-2" onclick="clearCart()">
+                    清空购物车
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 下单弹窗 -->
+<div class="modal fade" id="checkoutModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认下单</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">配送地址 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="deliveryAddress" placeholder="请输入配送地址">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">备注</label>
+                    <textarea class="form-control" id="orderNotes" rows="2" placeholder="如有特殊要求请注明"></textarea>
+                </div>
+                <div class="alert alert-info mb-0">
+                    应付金额：<strong id="checkoutTotal">0.00</strong> 元
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button class="btn btn-primary" id="confirmOrderBtn" onclick="submitOrder()">确认下单</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function loadCart() {
+    const res = await apiFetch('/api/cart');
+    const data = await res.json();
+    const container = document.getElementById('cartItems');
+    const summary = document.getElementById('cartSummary');
+
+    if (!data.items.length) {
+        container.innerHTML = `<div class="text-center py-5">
+            <i class="bi bi-cart-x" style="font-size:4rem;color:#ccc;"></i>
+            <p class="mt-2 text-muted">购物车是空的</p>
+            <a href="/menu" class="btn btn-primary"><i class="bi bi-shop"></i> 去逛逛</a></div>`;
+        summary.style.display = 'none';
+        return;
+    }
+    summary.style.display = '';
+    container.innerHTML = data.items.map(item => `
+        <div class="card mb-2 cart-item">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <h6 class="mb-1">${escapeHtml(item.name)}</h6>
+                    <span class="text-danger">&yen;${fmtPrice(item.price)}</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="updateQty(${item.id},${item.quantity-1})">-</button>
+                    <input type="number" class="form-control form-control-sm" style="width:60px"
+                           value="${item.quantity}" min="1"
+                           onchange="updateQty(${item.id},this.value)">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="updateQty(${item.id},${item.quantity+1})">+</button>
+                    <button class="btn btn-sm btn-outline-danger ms-2" onclick="deleteItem(${item.id})"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+            <div class="card-footer text-end text-muted small">
+                小计：<span class="text-danger fw-bold">&yen;${fmtPrice(item.subtotal)}</span>
+            </div>
+        </div>
+    `).join('');
+    document.getElementById('cartTotal').textContent = '¥' + fmtPrice(data.total);
+    document.getElementById('cartFinalTotal').textContent = '¥' + fmtPrice(data.total);
+    document.getElementById('checkoutTotal').textContent = '¥' + fmtPrice(data.total) + ' 元';
+}
+
+async function updateQty(id, qty) {
+    if (qty <= 0) return deleteItem(id);
+    await fetch(`/api/cart/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({quantity: qty})
+    });
+    loadCart();
+}
+
+async function deleteItem(id) {
+    await fetch(`/api/cart/${id}`, {method: 'DELETE'});
+    loadCart();
+}
+
+async function clearCart() {
+    if (!confirm('确定清空购物车？')) return;
+    await fetch('/api/cart', {method: 'DELETE'});
+    loadCart();
+}
+
+function checkout() {
+    new bootstrap.Modal(document.getElementById('checkoutModal')).show();
+}
+
+async function submitOrder() {
+    const address = document.getElementById('deliveryAddress').value.trim();
+    if (!address) { alert('请填写配送地址'); return; }
+    const res = await apiFetch('/api/orders', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            delivery_address: address,
+            notes: document.getElementById('orderNotes').value.trim()
+        })
+    });
+    const data = await res.json();
+    if (res.ok) {
+        showToast('下单成功！');
+        bootstrap.Modal.getInstance(document.getElementById('checkoutModal')).hide();
+        setTimeout(() => window.location.href = '/orders', 500);
+    } else { alert(data.error); }
+}
+
+loadCart();
+</script>
+{% endblock %}

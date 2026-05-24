@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}菜单 — 美食在线{% endblock %}
+{% block content %}
+<div class="row">
+    <!-- 左侧分类栏 -->
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-header fw-bold bg-white"><i class="bi bi-list-ul"></i> 菜品分类</div>
+            <div class="list-group list-group-flush" id="categoryList">
+                <a class="list-group-item list-group-item-action active" data-category-id=""
+                   onclick="filterByCategory(this,'')">全部</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧菜品 -->
+    <div class="col-md-9">
+        <div class="input-group mb-3">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" id="searchInput" placeholder="搜索菜品..."
+                   oninput="doSearch()">
+        </div>
+        <div class="row g-3" id="menuItems">
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted">加载中...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let currentCategoryId = '';
+
+async function loadCategories() {
+    const res = await fetch('/api/menu/categories');
+    const data = await res.json();
+    const list = document.getElementById('categoryList');
+    data.categories.forEach(cat => {
+        const a = document.createElement('a');
+        a.className = 'list-group-item list-group-item-action';
+        a.dataset.categoryId = cat.id;
+        a.textContent = cat.name;
+        a.onclick = () => filterByCategory(a, cat.id);
+        list.appendChild(a);
+    });
+}
+
+function filterByCategory(el, id) {
+    currentCategoryId = id;
+    document.querySelectorAll('#categoryList a').forEach(a => a.classList.remove('active'));
+    el.classList.add('active');
+    loadItems();
+}
+
+async function loadItems() {
+    let url = '/api/menu/items?';
+    if (currentCategoryId) url += 'category_id=' + currentCategoryId + '&';
+    const search = document.getElementById('searchInput').value.trim();
+    if (search) url += 'search=' + encodeURIComponent(search);
+
+    const res = await fetch(url);
+    const data = await res.json();
+    const ct = document.getElementById('menuItems');
+
+    if (!data.items.length) {
+        ct.innerHTML = '<div class="col-12 text-center py-5 text-muted"><i class="bi bi-inbox" style="font-size:3rem;"></i><p class="mt-2">暂无菜品</p></div>';
+        return;
+    }
+    ct.innerHTML = data.items.map(item => `
+        <div class="col-lg-4 col-md-6">
+            <div class="card menu-card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">${escapeHtml(item.name)}</h5>
+                    <p class="card-text text-muted small flex-grow-1">${escapeHtml(item.description)}</p>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <span class="text-danger fw-bold fs-5">&yen;${fmtPrice(item.price)}</span>
+                        <button class="btn btn-sm btn-primary" onclick="addToCart(${item.id})">
+                            <i class="bi bi-cart-plus"></i> 加购
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function addToCart(menuItemId) {
+    const res = await apiFetch('/api/cart/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({menu_item_id: menuItemId, quantity: 1})
+    });
+    const data = await res.json();
+    if (res.ok) showToast('已加入购物车');
+    else showToast(data.error, 'danger');
+}
+
+function doSearch() {
+    clearTimeout(window._searchTimer);
+    window._searchTimer = setTimeout(loadItems, 300);
+}
+
+loadCategories();
+loadItems();
+</script>
+{% endblock %}

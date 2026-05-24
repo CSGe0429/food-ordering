@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}我的订单 — 美食在线{% endblock %}
+{% block content %}
+<h4 class="mb-3"><i class="bi bi-receipt"></i> 我的订单</h4>
+<div id="orderList">
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+</div>
+
+<!-- 订单详情弹窗 -->
+<div class="modal fade" id="orderDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">订单详情</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="orderDetailContent"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function loadOrders() {
+    const res = await apiFetch('/api/orders');
+    const data = await res.json();
+    const ct = document.getElementById('orderList');
+
+    if (!data.orders.length) {
+        ct.innerHTML = `<div class="text-center py-5">
+            <i class="bi bi-inbox" style="font-size:4rem;color:#ccc;"></i>
+            <p class="mt-2 text-muted">还没有订单</p>
+            <a href="/menu" class="btn btn-primary">去点单</a></div>`;
+        return;
+    }
+    ct.innerHTML = data.orders.map(o => {
+        const st = ORDER_STATUS[o.status] || {label: o.status, cls: 'bg-secondary'};
+        return `
+        <div class="card mb-3 shadow-sm order-card" onclick="showDetail(${o.id})">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1">订单 #${o.id}</h6>
+                    <small class="text-muted">${o.created_at} &middot; ${o.item_count} 件商品 &middot; ${escapeHtml(o.delivery_address)}</small>
+                </div>
+                <div class="text-end">
+                    <span class="badge ${st.cls}">${st.label}</span>
+                    <div class="fs-5 fw-bold text-danger mt-1">&yen;${fmtPrice(o.total_amount)}</div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function showDetail(orderId) {
+    const res = await apiFetch(`/api/orders/${orderId}`);
+    const order = (await res.json()).order;
+    const st = ORDER_STATUS[order.status] || {label: order.status, cls: 'bg-secondary'};
+
+    document.getElementById('orderDetailContent').innerHTML = `
+        <div class="row mb-3">
+            <div class="col-sm-6"><span class="fw-bold">订单号：</span>#${order.id}</div>
+            <div class="col-sm-6"><span class="badge ${st.cls}">${st.label}</span></div>
+            <div class="col-sm-6 mt-2"><span class="fw-bold">下单时间：</span>${order.created_at}</div>
+            <div class="col-sm-6 mt-2"><span class="fw-bold">配送地址：</span>${escapeHtml(order.delivery_address)}</div>
+            ${order.notes ? `<div class="col-12 mt-2"><span class="fw-bold">备注：</span>${escapeHtml(order.notes)}</div>` : ''}
+        </div>
+        <table class="table table-bordered">
+            <thead class="table-light"><tr><th>菜品</th><th>单价</th><th>数量</th><th>小计</th></tr></thead>
+            <tbody>
+                ${order.items.map(i => `
+                <tr>
+                    <td>${escapeHtml(i.name)}</td>
+                    <td>&yen;${fmtPrice(i.unit_price)}</td>
+                    <td>${i.quantity}</td>
+                    <td>&yen;${fmtPrice(i.subtotal)}</td>
+                </tr>`).join('')}
+            </tbody>
+            <tfoot>
+                <tr class="table-light"><td colspan="3" class="text-end fw-bold">合计</td>
+                    <td class="text-danger fw-bold fs-5">&yen;${fmtPrice(order.total_amount)}</td></tr>
+            </tfoot>
+        </table>`;
+
+    new bootstrap.Modal(document.getElementById('orderDetailModal')).show();
+}
+
+loadOrders();
+</script>
+{% endblock %}

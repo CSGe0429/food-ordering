@@ -1,0 +1,55 @@
+body {
+    background-color: #f8f9fa;
+}
+
+/* 菜单卡片 */
+.menu-card {
+    transition: transform .2s, box-shadow .2s;
+    border: none;
+}
+.menu-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,.12) !important;
+}
+
+/* 购物车项 */
+.cart-item {
+    border: none;
+    transition: box-shadow .2s;
+}
+.cart-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+/* 订单卡片 */
+.order-card {
+    cursor: pointer;
+    transition: transform .2s, box-shadow .2s;
+    border: none;
+}
+.order-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,.12) !important;
+}
+
+/* 分类列表选中 */
+#categoryList .list-group-item.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* 数量输入去掉箭头 */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type=number] {
+    -moz-appearance: textfield;
+}
+
+/* 品牌色导航栏 */
+.navbar-brand {
+    font-weight: 700;
+    letter-spacing: 1px;
+}

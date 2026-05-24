@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}注册 — 美食在线{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow border-0">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <i class="bi bi-person-plus text-primary" style="font-size:2.5rem;"></i>
+                    <h3>创建账号</h3>
+                    <p class="text-muted">注册后即可开始点单</p>
+                </div>
+                <form id="registerForm">
+                    <div class="mb-3">
+                        <label class="form-label">用户名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="username" required minlength="2">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">密码 <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="password" required minlength="4">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">联系电话</label>
+                        <input type="tel" class="form-control" id="phone">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">默认配送地址</label>
+                        <input type="text" class="form-control" id="address" placeholder="收货地址（下单时可修改）">
+                    </div>
+                    <div class="alert alert-danger d-none" id="registerError"></div>
+                    <button type="submit" class="btn btn-primary w-100 py-2">注册</button>
+                </form>
+                <p class="text-center mt-3 mb-0">已有账号？<a href="/login">去登录</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('registerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const errEl = document.getElementById('registerError');
+    try {
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value,
+                phone: document.getElementById('phone').value,
+                address: document.getElementById('address').value
+            })
+        });
+        const data = await res.json();
+        if (res.ok) { window.location.href = '/menu'; }
+        else { errEl.textContent = data.error; errEl.classList.remove('d-none'); }
+    } catch { errEl.textContent = '网络错误，请重试'; errEl.classList.remove('d-none'); }
+});
+</script>
+{% endblock %}
